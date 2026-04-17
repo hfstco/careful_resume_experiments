@@ -452,8 +452,9 @@ def process_experiment_dir(args: argparse.Namespace, experiment_dir: Path) -> in
     stats_frame["ci_lower"] = (stats_frame["throughput_mbps_mean"] - stats_frame["ci_half_width"]).clip(lower=0.0)
     stats_frame["ci_upper"] = stats_frame["throughput_mbps_mean"] + stats_frame["ci_half_width"]
 
-    combined_csv_path = output_dir / "all_runs_throughput.csv"
-    average_csv_path = output_dir / "average_throughput.csv"
+    output_stem = experiment_dir.name
+    combined_csv_path = output_dir / f"{output_stem}_all_runs_throughput.csv"
+    average_csv_path = output_dir / f"{output_stem}_average_throughput.csv"
     combined_frame.to_csv(combined_csv_path, index=False)
     stats_frame.to_csv(average_csv_path, index=False)
     run_count = combined_frame["run"].nunique()
@@ -461,7 +462,7 @@ def process_experiment_dir(args: argparse.Namespace, experiment_dir: Path) -> in
         capture_frame = stats_frame[stats_frame["capture"] == capture_name].copy()
         if capture_frame.empty:
             continue
-        average_pdf_path = output_dir / f"average_{capture_name}_throughput.pdf"
+        average_pdf_path = output_dir / f"{output_stem}_average_{capture_name}_throughput.pdf"
         plot_average(capture_frame, average_pdf_path, args.show, run_count, capture_name)
         print(f"Wrote {average_pdf_path}")
     print(f"Wrote {combined_csv_path}")
