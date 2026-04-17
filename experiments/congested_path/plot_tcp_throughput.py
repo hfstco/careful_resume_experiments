@@ -463,8 +463,11 @@ def process_experiment_dir(args: argparse.Namespace, experiment_dir: Path) -> in
         if capture_frame.empty:
             continue
         average_pdf_path = output_dir / f"{output_stem}_average_{capture_name}_throughput.pdf"
+        average_png_path = output_dir / f"{output_stem}_average_{capture_name}_throughput.png"
         plot_average(capture_frame, average_pdf_path, args.show, run_count, capture_name)
+        plot_average(capture_frame, average_png_path, args.show, run_count, capture_name)
         print(f"Wrote {average_pdf_path}")
+        print(f"Wrote {average_png_path}")
     print(f"Wrote {combined_csv_path}")
     print(f"Wrote {average_csv_path}")
     return 0
