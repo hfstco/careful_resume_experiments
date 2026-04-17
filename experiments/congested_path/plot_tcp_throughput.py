@@ -91,14 +91,26 @@ def iter_timestamp_dirs(base_dir: Path) -> list[Path]:
     )
 
 
+def iter_measurement_dirs(base_dir: Path) -> list[Path]:
+    if not base_dir.exists():
+        return []
+    return sorted(
+        path
+        for path in base_dir.iterdir()
+        if path.is_dir()
+        and path.name != "__pycache__"
+        and any(child.is_dir() and TIMESTAMP_DIR_PATTERN.match(child.name) for child in path.iterdir())
+    )
+
+
 def resolve_experiment_dir(requested_dir: Path | None) -> Path:
     if requested_dir is not None:
         return requested_dir.resolve()
 
-    timestamp_dirs = iter_timestamp_dirs(BASE_DIR)
-    if not timestamp_dirs:
+    measurement_dirs = iter_measurement_dirs(BASE_DIR)
+    if not measurement_dirs:
         raise FileNotFoundError(f"No timestamp directories found in {BASE_DIR}")
-    return timestamp_dirs[-1]
+    return measurement_dirs[-1]
 
 
 def resolve_output_dir(experiment_dir: Path, requested_output_dir: Path | None) -> Path:
@@ -478,7 +490,7 @@ def main() -> int:
         return 2
 
     if args.all_measurements:
-        experiment_dirs = iter_timestamp_dirs(BASE_DIR)
+        experiment_dirs = iter_measurement_dirs(BASE_DIR)
         if not experiment_dirs:
             print(f"No timestamp directories found in {BASE_DIR}", file=sys.stderr)
             return 1
