@@ -450,13 +450,13 @@ def process_experiment_dir(args: argparse.Namespace, experiment_dir: Path) -> in
             continue
 
         all_summaries.append(summary)
-        run_output_stem = f"{experiment_dir.name}_{run_dir.name}"
+        run_output_stem = run_dir.name
         for capture_name in ("client", "server"):
             capture_frame = summary[summary["capture"] == capture_name].copy()
             if capture_frame.empty:
                 continue
-            run_pdf_path = output_dir / f"{run_output_stem}_{capture_name}_throughput.pdf"
-            run_png_path = output_dir / f"{run_output_stem}_{capture_name}_throughput.png"
+            run_pdf_path = run_dir / f"{run_output_stem}_{capture_name}_throughput.pdf"
+            run_png_path = run_dir / f"{run_output_stem}_{capture_name}_throughput.png"
             plot_run(capture_frame, run_pdf_path, run_dir.name, args.show, capture_name)
             plot_run(capture_frame, run_png_path, run_dir.name, args.show, capture_name)
             print(f"Wrote {run_pdf_path}")
