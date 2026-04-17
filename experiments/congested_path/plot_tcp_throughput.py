@@ -163,8 +163,9 @@ def parse_pcap(
         f"{port_start}-{port_end}",
     ]
     result = subprocess.run(command, capture_output=True, text=True, check=False)
-    if result.returncode != 0:
-        stderr = result.stderr.strip()
+    stderr = result.stderr.strip()
+    truncated_dump = "tcpdump: pcap_loop: truncated dump file;" in stderr
+    if result.returncode != 0 and not truncated_dump:
         raise RuntimeError(f"tcpdump failed for {pcap_path}: {stderr or 'unknown error'}")
 
     records: list[dict[str, object]] = []
