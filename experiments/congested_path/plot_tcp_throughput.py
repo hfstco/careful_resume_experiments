@@ -73,11 +73,6 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_MAX_TIME_SECONDS,
         help=f"Maximum time in seconds to include in the plot and averaged CSV (default: {DEFAULT_MAX_TIME_SECONDS}).",
     )
-    parser.add_argument(
-        "--all-measurements",
-        action="store_true",
-        help="Generate plots for every top-level timestamped measurement directory.",
-    )
     return parser.parse_args()
 
 
@@ -485,17 +480,14 @@ def main() -> int:
     if args.max_time <= 0:
         print("--max-time must be greater than 0", file=sys.stderr)
         return 2
-    if args.all_measurements and args.experiment_dir is not None:
-        print("Pass either a single experiment_dir or --all-measurements, not both.", file=sys.stderr)
-        return 2
 
-    if args.all_measurements:
+    if args.experiment_dir is not None:
+        experiment_dirs = [resolve_experiment_dir(args.experiment_dir)]
+    else:
         experiment_dirs = iter_measurement_dirs(BASE_DIR)
         if not experiment_dirs:
-            print(f"No timestamp directories found in {BASE_DIR}", file=sys.stderr)
+            print(f"No measurement directories found in {BASE_DIR}", file=sys.stderr)
             return 1
-    else:
-        experiment_dirs = [resolve_experiment_dir(args.experiment_dir)]
 
     exit_code = 0
     for experiment_dir in experiment_dirs:
