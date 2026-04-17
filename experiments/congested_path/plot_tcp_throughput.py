@@ -277,39 +277,66 @@ def build_run_dataframe(
     return frame, summary
 
 
-def plot_run(summary_frame, output_path: Path, run_name: str, show: bool) -> None:
+def plot_run(summary_frame, output_path: Path, run_name: str, show: bool, capture_name: str) -> None:
     import matplotlib.pyplot as plt
     import seaborn as sns
 
     sns.set_theme(style="whitegrid", context="talk")
-    plot = sns.relplot(
-        data=summary_frame,
-        kind="line",
-        x="time_seconds",
-        y="throughput_mbps",
-        hue="flow_label",
-        col="capture",
-        col_order=["client", "server"],
-        linewidth=1.4,
-        height=5,
-        aspect=1.35,
-        facet_kws={"sharey": True, "sharex": True},
+    figure, axis = plt.subplots(figsize=(11, 5.5), constrained_layout=True)
+    flow_ports = sorted(summary_frame["flow_port"].unique())
+    foreground_port = DEFAULT_FOREGROUND_PORT if DEFAULT_FOREGROUND_PORT in flow_ports else None
+    background_ports = [port for port in flow_ports if port != foreground_port]
+    transport_by_flow = (
+        summary_frame.groupby("flow_port")["transport"]
+        .agg(lambda values: sorted(set(values))[0])
+        .to_dict()
     )
-    plot.set_axis_labels("Time since first packet in run (s)", "Throughput (Mbit/s)")
-    plot.set_titles("{col_name}.pcap")
-    plot.figure.suptitle(f"Per-flow throughput for {run_name}", y=1.05)
 
-    legend = plot.legend
-    if legend is not None:
-        legend.set_title("Flow")
+    if foreground_port is None:
+        foreground_frame = summary_frame.iloc[0:0]
+        background_frame = summary_frame
+    else:
+        foreground_frame = summary_frame[summary_frame["flow_port"] == foreground_port]
+        background_frame = summary_frame[summary_frame["flow_port"] != foreground_port]
 
-    for axis in plot.axes.flat:
-        axis.grid(True, alpha=0.3)
+    grey_palette = sns.color_palette("Greys", n_colors=max(len(background_ports) + 2, 3))[1:-1]
+    for color, flow_port in zip(grey_palette, background_ports):
+        flow_frame = background_frame[background_frame["flow_port"] == flow_port]
+        if flow_frame.empty:
+            continue
+        axis.plot(
+            flow_frame["time_seconds"],
+            flow_frame["throughput_mbps"],
+            color=color,
+            linewidth=1.5,
+            alpha=0.9,
+            label="_nolegend_",
+        )
 
-    plot.savefig(output_path, dpi=200, bbox_inches="tight")
+    if not foreground_frame.empty:
+        axis.plot(
+            foreground_frame["time_seconds"],
+            foreground_frame["throughput_mbps"],
+            color=sns.color_palette("deep")[0],
+            linewidth=2.2,
+            label=transport_by_flow.get(foreground_port, "Foreground"),
+        )
+
+    if background_ports:
+        background_protocols = sorted({transport_by_flow.get(port, "Background") for port in background_ports})
+        axis.plot([], [], color="0.45", linewidth=1.8, label=" / ".join(background_protocols))
+
+    figure.suptitle(f"Per-flow {capture_name}-side throughput for run {run_name}")
+    axis.set_xlabel("Time since first packet in run (s)")
+    axis.set_ylabel("Throughput (Mbit/s)")
+    axis.set_title(f"{capture_name}.pcap")
+    axis.grid(True, alpha=0.3)
+    axis.legend(title="Flow")
+
+    figure.savefig(output_path, dpi=200, bbox_inches="tight")
     if show:
         plt.show()
-    plt.close(plot.figure)
+    plt.close(figure)
 
 
 def plot_average(summary_frame, output_path: Path, show: bool, run_count: int, capture_name: str) -> None:
@@ -423,6 +450,17 @@ def process_experiment_dir(args: argparse.Namespace, experiment_dir: Path) -> in
             continue
 
         all_summaries.append(summary)
+        run_output_stem = f"{experiment_dir.name}_{run_dir.name}"
+        for capture_name in ("client", "server"):
+            capture_frame = summary[summary["capture"] == capture_name].copy()
+            if capture_frame.empty:
+                continue
+            run_pdf_path = output_dir / f"{run_output_stem}_{capture_name}_throughput.pdf"
+            run_png_path = output_dir / f"{run_output_stem}_{capture_name}_throughput.png"
+            plot_run(capture_frame, run_pdf_path, run_dir.name, args.show, capture_name)
+            plot_run(capture_frame, run_png_path, run_dir.name, args.show, capture_name)
+            print(f"Wrote {run_pdf_path}")
+            print(f"Wrote {run_png_path}")
 
     if not all_summaries:
         print("No plots were generated.", file=sys.stderr)
